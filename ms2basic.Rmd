@@ -1,0 +1,107 @@
+---
+title: "Processing DDA MS2 data - Basic Functions"
+author: "Michael Witting"
+date: "8 Juni 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Basic processing of DDA MS2 data with XCMS
+
+Metabolite identification is usually achieved by comparing MS2 spectra against reference spectra. Such MS2 data can be generated using data dependent acquistion. For further processing it is important to link the MS1 features and collected MS2 spectra. Here simply means to isolate MS2 spectra belonging to a certain chromatographic peak are presented.
+
+## Setup of XCMS
+
+
+
+```{r, message=FALSE, warning=FALSE}
+#load required library
+library(xcms)
+
+#set number of cores
+noOfCores <- 4
+
+## Use socket based parallel processing on Windows systems
+if (.Platform$OS.type == "unix") {
+  register(bpstart(MulticoreParam(noOfCores)))
+} else {
+  register(bpstart(SnowParam(noOfCores)))
+}
+```
+
+## Read MS data
+
+```{r}
+## MS1 and MS2 data and file has to be read only once.
+xrms <- readMSData("data\\PestMix1_DDA.mzML", mode = "onDisk", centroided = TRUE)
+
+#plot BPC
+bpis <- chromatogram(xrms, aggregationFun = "max")
+plot(bpis)
+```
+
+## Detect peaks
+
+XXX
+
+```{r}
+#set parameters and find chromatographic peaks
+ms1cwp <- CentWaveParam(snthresh = 5, noise = 100, ppm = 10, peakwidth = c(3,30))
+ms1data <- findChromPeaks(xrms, param = ms1cwp, msLevel = 1)
+
+#get all peaks
+chromPeaks <- chromPeaks(ms1data)
+```
+
+
+## Function to isolate specific 
+
+```{r consolidation}
+#function for DDA data
+#MS2 spectra need to be list of spectrum2 objects
+getDdaMS2Scans <- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 20) {
+  
+  #make a new list
+  filteredMs2spectra <- list()
+  
+  #isolate only the ones within range
+  for(i in 1:length(ms2spectra)) {
+    
+    #isolate Ms2 spectrum
+    ms2spectrum <- ms2spectra[[i]]
+    
+    #check if within range of peak
+    if(abs(chromPeak[4] - ms2spectrum@rt) < rtTol & abs(chromPeak[1] - ms2spectrum@precursorMz) < mzTol) {
+      filteredMs2spectra <- c(filteredMs2spectra, ms2spectrum)
+    }
+  }
+  
+  #return list with filtered ms2 spectra
+  return(filteredMs2spectra)
+}
+
+```
+
+## Example Peak: Fluopicolide
+
+```{r}
+#isolate Fluopicolide
+chromPeak <- chromPeaks[57,]
+
+#Fluopicolide, exact mass = 381.965430576, [M+H]+ = 382.972706
+eic <- chromatogram(xrms, aggregationFun = "max", mz = c(382.96, 382.98), rt = c(430,450))
+plot(eic)
+
+#get all MS2 spectra from DDA experiment
+ms2spectra <- spectra(filterMsLevel(xrms, msLevel = 2))
+
+#filter out fitting spectra
+filteredMs2spectra <- getDdaMS2Scans(chromPeak, ms2spectra)
+
+#mark position in EIC
+abline(v = unlist(lapply(filteredMs2spectra, function(x) {return(x@rt)})), col = "red")
+```
+
