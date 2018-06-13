@@ -118,7 +118,7 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Processing DDA MS2 data - Basic Functions</h1>
+<h1 class="title toc-ignore">Processing DDA MS<sup>2</sup> data - Basic Functions</h1>
 <h4 class="author"><em>Michael Witting</em></h4>
 <h4 class="date"><em>8 Juni 2018</em></h4>
 
@@ -126,8 +126,8 @@ $(document).ready(function () {
 
 
 <div id="basic-processing-of-dda-ms2-data-with-xcms" class="section level2">
-<h2>Basic processing of DDA MS2 data with XCMS</h2>
-<p>Metabolite identification is usually achieved by comparing MS2 spectra against reference spectra. Such MS2 data can be generated using data dependent acquistion. For further processing it is important to link the MS1 features and collected MS2 spectra. Here simply means to isolate MS2 spectra belonging to a certain chromatographic peak are presented.</p>
+<h2>Basic processing of DDA MS<sup>2</sup> data with XCMS</h2>
+<p>Metabolite identification is usually achieved by comparing MS2 spectra against reference spectra. Such MS2 data can be generated using data dependent acquistion. For further processing it is important to link the MS<sup>1</sup> features and collected MS<sup>2</sup> spectra. Here simply means to isolate MS2 spectra belonging to a certain chromatographic peak are presented.</p>
 </div>
 <div id="setup-of-xcms" class="section level2">
 <h2>Setup of XCMS</h2>
@@ -156,7 +156,7 @@ plot(bpis)</code></pre>
 </div>
 <div id="detect-peaks" class="section level2">
 <h2>Detect peaks</h2>
-<p>XXX</p>
+<p>Chromatographic peak detection is performed using the CentWave algorithm. Since only a single sample is analyzed no retention time alignment is required. Peak detection is performed only on the MS<sup>1</sup> level.</p>
 <pre class="r"><code>#set parameters and find chromatographic peaks
 ms1cwp &lt;- CentWaveParam(snthresh = 5, noise = 100, ppm = 10, peakwidth = c(3,30))
 ms1data &lt;- findChromPeaks(xrms, param = ms1cwp, msLevel = 1)</code></pre>
@@ -165,11 +165,18 @@ ms1data &lt;- findChromPeaks(xrms, param = ms1cwp, msLevel = 1)</code></pre>
 <pre class="r"><code>#get all peaks
 chromPeaks &lt;- chromPeaks(ms1data)</code></pre>
 </div>
+<div id="get-dda-ms2-spectra-in-file" class="section level2">
+<h2>Get DDA MS2 spectra in file</h2>
+<p>All MS2 spectra can be extracted by filtering out the MS2 level and retrieve all spectra. A list of Spectrum2 objects is returned.</p>
+<pre class="r"><code>#get all MS2 spectra from DDA experiment
+ms2spectra &lt;- spectra(filterMsLevel(xrms, msLevel = 2))</code></pre>
+</div>
 <div id="function-to-isolate-specific" class="section level2">
 <h2>Function to isolate specific</h2>
+<p>MS2 spectra corresponding to a specific peak can be isolated by comparing the retention time of the peak with the acquisition timing of the MS2 spectrum. Additionally, the precursor m/z and peak m/z should match.</p>
 <pre class="r"><code>#function for DDA data
 #MS2 spectra need to be list of spectrum2 objects
-getDdaMS2Scans &lt;- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 20) {
+getDdaMS2Scans &lt;- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 30) {
   
   #make a new list
   filteredMs2spectra &lt;- list()
@@ -192,15 +199,13 @@ getDdaMS2Scans &lt;- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 20) {
 </div>
 <div id="example-peak-fluopicolide" class="section level2">
 <h2>Example Peak: Fluopicolide</h2>
+<p>Fluopicolide is used as example. An EIC for the [M+H]+ is generated using the chromatogram function. The function from above is used to isolate MS2 spectra that are belonging to Fluopicolide. For each MS2 a vertical red line is added to the plot to illustrate the timing of MS2 data collection.</p>
 <pre class="r"><code>#isolate Fluopicolide
 chromPeak &lt;- chromPeaks[57,]
 
 #Fluopicolide, exact mass = 381.965430576, [M+H]+ = 382.972706
 eic &lt;- chromatogram(xrms, aggregationFun = &quot;max&quot;, mz = c(382.96, 382.98), rt = c(430,450))
 plot(eic)
-
-#get all MS2 spectra from DDA experiment
-ms2spectra &lt;- spectra(filterMsLevel(xrms, msLevel = 2))
 
 #filter out fitting spectra
 filteredMs2spectra &lt;- getDdaMS2Scans(chromPeak, ms2spectra)

@@ -1,5 +1,5 @@
 ---
-title: "Processing DDA MS2 data - Basic Functions"
+title: "Processing DDA MS^2^ data - Basic Functions"
 author: "Michael Witting"
 date: "8 Juni 2018"
 output: html_document
@@ -9,13 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Basic processing of DDA MS2 data with XCMS
+## Basic processing of DDA MS^2^ data with XCMS
 
-Metabolite identification is usually achieved by comparing MS2 spectra against reference spectra. Such MS2 data can be generated using data dependent acquistion. For further processing it is important to link the MS1 features and collected MS2 spectra. Here simply means to isolate MS2 spectra belonging to a certain chromatographic peak are presented.
+Metabolite identification is usually achieved by comparing MS2 spectra against reference spectra. Such MS2 data can be generated using data dependent acquistion. For further processing it is important to link the MS^1^ features and collected MS^2^ spectra. Here simply means to isolate MS2 spectra belonging to a certain chromatographic peak are presented.
 
 ## Setup of XCMS
-
-
 
 ```{r, message=FALSE, warning=FALSE}
 #load required library
@@ -45,7 +43,7 @@ plot(bpis)
 
 ## Detect peaks
 
-XXX
+Chromatographic peak detection is performed using the CentWave algorithm. Since only a single sample is analyzed no retention time alignment is required. Peak detection is performed only on the MS^1^ level.
 
 ```{r}
 #set parameters and find chromatographic peaks
@@ -56,13 +54,24 @@ ms1data <- findChromPeaks(xrms, param = ms1cwp, msLevel = 1)
 chromPeaks <- chromPeaks(ms1data)
 ```
 
+## Get DDA MS2 spectra in file
 
-## Function to isolate specific 
+All MS2 spectra can be extracted by filtering out the MS2 level and retrieve all spectra. A list of Spectrum2 objects is returned.
+
+```{r}
+#get all MS2 spectra from DDA experiment
+ms2spectra <- spectra(filterMsLevel(xrms, msLevel = 2))
+```
+
+
+## Function to isolate specific
+
+MS2 spectra corresponding to a specific peak can be isolated by comparing the retention time of the peak with the acquisition timing of the MS2 spectrum. Additionally, the precursor m/z and peak m/z should match.
 
 ```{r consolidation}
 #function for DDA data
 #MS2 spectra need to be list of spectrum2 objects
-getDdaMS2Scans <- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 20) {
+getDdaMS2Scans <- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 30) {
   
   #make a new list
   filteredMs2spectra <- list()
@@ -87,6 +96,8 @@ getDdaMS2Scans <- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 20) {
 
 ## Example Peak: Fluopicolide
 
+Fluopicolide is used as example. An EIC for the [M+H]+ is generated using the chromatogram function. The function from above is used to isolate MS2 spectra that are belonging to Fluopicolide. For each MS2 a vertical red line is added to the plot to illustrate the timing of MS2 data collection.
+
 ```{r}
 #isolate Fluopicolide
 chromPeak <- chromPeaks[57,]
@@ -94,9 +105,6 @@ chromPeak <- chromPeaks[57,]
 #Fluopicolide, exact mass = 381.965430576, [M+H]+ = 382.972706
 eic <- chromatogram(xrms, aggregationFun = "max", mz = c(382.96, 382.98), rt = c(430,450))
 plot(eic)
-
-#get all MS2 spectra from DDA experiment
-ms2spectra <- spectra(filterMsLevel(xrms, msLevel = 2))
 
 #filter out fitting spectra
 filteredMs2spectra <- getDdaMS2Scans(chromPeak, ms2spectra)
