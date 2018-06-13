@@ -1,0 +1,141 @@
+---
+title: "Processing IDA MS^2^ data - Basic Functions"
+author: "Michael"
+date: "13 Juni 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Basic processing of DDA MS^2^ data with XCMS
+
+Metabolite identification is usually achieved by comparing MS2 spectra against reference spectra. Such MS2 data can be generated using data dependent acquistion. For further processing it is important to link the MS^1^ features and collected MS^2^ spectra. Here simply means to isolate MS2 spectra belonging to a certain chromatographic peak are presented.
+
+## Setup of XCMS
+
+XCMS3 is able to use multiple cores (e.g. when working on multiple files). If required a parallel backend can be registered.
+```{r, message=FALSE, warning=FALSE}
+#load required library
+library(xcms)
+library(ggplot2)
+
+#set number of cores
+noOfCores <- 4
+
+## Use socket based parallel processing on Windows systems
+if (.Platform$OS.type == "unix") {
+  register(bpstart(MulticoreParam(noOfCores)))
+} else {
+  register(bpstart(SnowParam(noOfCores)))
+}
+```
+
+## Read MS data
+
+The example file contains an RP-LC-MS run of Mix 1 taken from the Agilent Pesticide Reference mix measured on a Sciex TripleTof 6600 using SWATH data acquisition mode. First we plot a base peak chromatogram to get an overview on the chromatogram.
+```{r}
+## MS1 and MS2 data and file has to be read only once.
+xrms <- readMSData("data\\PestMix1_SWATH.mzML", mode = "onDisk", centroided = TRUE)
+
+#plot BPC
+bpis <- chromatogram(xrms, aggregationFun = "max")
+plot(bpis)
+```
+
+## Splitting of data into different MS level and SWATH pockets
+
+To further process the data it has to be splitted into the different MS levels. This is achieved by the <code>filterMsLevel()</code> function. The MS^2^ is further split according to the precursors (in total 8 unique representing the 8 SWATH pockets). A list of <code>OnDiskMSnExp</code> objects is returned by the split function.
+
+```{r}
+# filter out the MS1 & MS2 level
+xrms_ms1 <- filterMsLevel(xrms, msLevel = 1)
+xrms_ms2 <- filterMsLevel(xrms, msLevel = 2)
+
+# split MS2 data into SWATH pockets
+# Use the fData method to access the "feature data" (i.e. the mzML header)
+precursors <- fData(xrms_ms2)$precursorMZ
+unique(precursors)
+
+#split according to different SWATH windows
+xrms_ms2_swath <- split(xrms_ms2, f = as.integer(precursors))
+```
+
+## Working with SWATH data
+
+Working with SWATH data requires some additional functions borrowed from the <code>swathR</code> package, currently under development (<https://github.com/michaelwitting/swathR>). These functions perform correlation of EICs of the MS^1^ trace and potential MS^2^ fragment candidates. The functions can be found in the functions folder and are loaded via <code>source()</code>.
+
+```{r}
+source("functions\\eicFunctions.R")
+source("functions\\fragmentCandSearch.R")
+source("functions\\plottingFunctions.R")
+source("functions\\reconSpectrum.R")
+source("functions\\spectraFunctions.R")
+source("functions\\utils.R")
+```
+
+Next chromatographic peak detection is performed on the MS^1^ and MS^2^ level. Different settings can be used for the different MS level. The <code>findChromPeaks</code> function can be applied to the list of <code>OnDiskMsnExp</code> via the <code>lapply()</code> function.
+
+```{r}
+## Set parameter for Centwave peak detection
+ms1cwp <- CentWaveParam(snthresh = 5, noise = 100, ppm = 10, peakwidth = c(3,30))
+ms2cwp <- CentWaveParam(snthresh = 5, noise = 100, ppm = 10, peakwidth = c(3,30))
+
+# find peaks in MS1 level
+ms1data <- findChromPeaks(xrms_ms1, param = ms1cwp, msLevel = 1)
+
+# find peaks in MS2 level
+# Peak detection on all; explicitely tell findChromPeaks to run on MS2
+ms2data <- lapply(xrms_ms2_swath, FUN = findChromPeaks, param = ms2cwp, msLevel = 2)
+```
+
+Afterwards, chromatogrpahic peaks from the MS^1^ level are retrieved. Fluopicolide is used again as example.
+
+```{r}
+# get all MS1 peaks
+ms1chromPeaks <- chromPeaks(ms1data)
+
+# Fluopicolide, exact mass = 381.965430576, [M+H]+ = 382.972706
+eic <- chromatogram(xrms_ms1, aggregationFun = "max", mz = c(382.96, 382.98), rt = c(430,450))
+plot(eic)
+
+# isolate Fluopicolide
+chromPeak <- ms1chromPeaks[41,]
+```
+
+For reconstruction of a MS^2^ spectrum from the SWATH data chromatographic peaks from the fitting SWATH pocket are required. The <code>searchMultiplePIcandidates()</code> retrieves all potential fragment candidates within a give retention time window, in this case 5 seconds.
+
+```{r}
+# get peaks in fitting SWATH pocket
+ms2chromPeaks <- chromPeaks(ms2data[[7]])
+
+# get fragment candidates
+fragCand <- searchMultiplePIcandidates(chromPeak, ms2chromPeaks, 5)
+```
+
+If one or more fitting candidates are found correlation of the MS^1^ EIC the EICs from MS^2^ candidates is performed. If the correlation is above a certain treshold a peak is retained as fragment, otherwise it is discarded.
+
+```{r, warning = FALSE}
+if(nrow(fragCand) > 0) {
+  
+  # get EICs for MS1 precursor and MS2 fragment candidates
+  ms1df <- getEics(ms1data, chromPeak, rtwindow = 5, msLevel = 1)
+  ms2df <- getEics(ms2data[[7]], fragCand, rtwindow = 5, msLevel = 2)
+  
+  # Align MS2 data with MS1
+  ms2dfCor <- alignMsLevel(ms1df, ms2df)
+  
+  # correlate MS1 and MS2
+  corValues <- correlateMsLevel(ms1df, ms2dfCor)
+  
+  # plot EICs
+  plotCandEICs(ms1df, ms2dfCor, chromPeak, corValues)
+  
+  # reconstruct MS2 spectrum
+  ms2spectrum <- reconSpectrum(chromPeak, ms2dfCor, corValues)
+  plotSpectrum(ms2spectrum, chromPeak)
+  
+}
+```
+

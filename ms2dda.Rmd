@@ -1,7 +1,7 @@
 ---
 title: "Processing DDA MS^2^ data - Basic Functions"
 author: "Michael Witting"
-date: "8 Juni 2018"
+date: "24th of June 2018"
 output:
   html_document: default
   pdf_document: default
@@ -129,12 +129,5 @@ One example MS^2^ is plotted.
 ```{r}
 #plot on example
 plot(filteredMs2spectra[[4]]@mz, filteredMs2spectra[[4]]@intensity / max(filteredMs2spectra[[4]]@intensity) *100, type = "h", xlim = c(50, 400), xlab = "m/z", ylab = "rel. Int.")
-
-#2D plot of detected peaks
-ggplot(as.data.frame(chromPeaks), aes(xmin = rtmin, xmax = rtmax, ymin = mzmin, ymax = mzmax)) +
-  geom_rect(colour = "blue") +
-  scale_x_continuous(limits = c(430, 450)) +
-  scale_y_continuous(limits = c(382.9, 383)) +
-  theme_bw()
 ```
 
