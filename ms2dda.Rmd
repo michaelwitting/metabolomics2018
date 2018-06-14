@@ -65,9 +65,9 @@ ggplot(as.data.frame(chromPeaks), aes(xmin = rtmin, xmax = rtmax, ymin = mzmin, 
 
 ```
 
-## Get DDA MS2 spectra in file
+## Handling of DDA MS2 data
 
-All MS2 spectra can be extracted by filtering out the MS2 level and retrieve all spectra. A list of Spectrum2 objects is returned.
+All MS^2^ spectra can be extracted by filtering out the MS^2^ level and retrieve all spectra using the <code>spectra()</code> function together with <code>filterMsLevel()</code>. A list of <code>Spectrum2</code> objects is returned (see [MSnbase Development](https://www.bioconductor.org/packages/devel/bioc/vignettes/MSnbase/inst/doc/MSnbase-development.html#27_spectrum_et_al:_classes_for_ms_spectra)).
 
 ```{r}
 #get all MS2 spectra from DDA experiment
@@ -80,10 +80,7 @@ ms2pos <- data.frame(rt = unlist(lapply(ms2spectra, function(x) {return(x@rt)}))
 plot(ms2pos$rt, ms2pos$mz)
 ```
 
-
-## Function to isolate specific
-
-MS2 spectra corresponding to a specific peak can be isolated by comparing the retention time of the peak with the acquisition timing of the MS2 spectrum. Additionally, the precursor m/z and peak m/z should match.
+MS^2^ spectra corresponding to a specific peak can be isolated by comparing the retention time of the peak with the acquisition timing of the MS^2^ spectrum. Additionally, the precursor m/z and peak m/z should match.
 
 ```{r consolidation}
 #function for DDA data
@@ -111,7 +108,7 @@ getDdaMS2Scans <- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 30) {
 
 ```
 
-Using this function MS2 spectra can be consolidated and only spectra retained that are within a certain limit around a detected peak. This drastically reduces the number of spectra that have to be processed.
+Using this function MS^2^ spectra can be consolidated and only spectra that are within a certain limit around a detected peak are retained. This drastically reduces the number of spectra that have to be processed.
 
 ```{r}
 #create empty list
@@ -135,10 +132,20 @@ plot(ms2pos$rt, ms2pos$mz)
 points(ms2pos_filtered$rt, ms2pos_filtered$mz, col = "red", cex = 2.5)
 ```
 
+The <code>MSnbase</code> package provides functions for handling of MS^2^ spectra, e.g. creating a mirror plot of two spectra and to calculate their similarity.
+
+```{r}
+# make mirror plot of two spectra
+plot(filteredMs2spectra[[100]], filteredMs2spectra[[101]])
+
+# calculate dot product
+compareSpectra(filteredMs2spectra[[100]], filteredMs2spectra[[101]], binSize = 0.01, fun = "dotproduct")
+```
+
 
 ## Example Peak: Fluopicolide
 
-Fluopicolide is used as example. An EIC for the [M+H]+ is generated using the chromatogram function. The function from above is used to isolate MS2 spectra that are belonging to Fluopicolide. For each MS2 a vertical red line is added to the plot to illustrate the timing of MS2 data collection.
+Fluopicolide is used as example. An EIC for the [M+H]^+^ is generated using the chromatogram function. The function <code>getDdaMS2Scans</code> is used to isolate MS^2^ spectra that are belonging to Fluopicolide. For each MS^2^ collected for Fluopicolide a vertical red line is added to the plot to illustrate the timing of MS^2^ data collection.
 
 ```{r}
 #isolate Fluopicolide
@@ -155,10 +162,22 @@ filteredMs2spectra <- getDdaMS2Scans(chromPeak, ms2spectra)
 abline(v = unlist(lapply(filteredMs2spectra, function(x) {return(x@rt)})), col = "red")
 ```
 
-One example MS^2^ is plotted.
+Using functions from <code>MSnbase</code> similarity to a library spectrum can calculated. A example library spectrum for Fluopicolide was taken from the Metlin DB (MID 72270) ([Metlin](https://metlin.scripps.edu/)). In order to be used with the <code>compareSpectra</code> function it has to be stored as <code>Spectrum2</code> object. Afterwards it can be handled by <code>MSnbase</code>.
 
 ```{r}
-#plot on example
-plot(filteredMs2spectra[[4]]@mz, filteredMs2spectra[[4]]@intensity / max(filteredMs2spectra[[4]]@intensity) *100, type = "h", xlim = c(50, 400), xlab = "m/z", ylab = "rel. Int.")
+#example spectrum (taken from Metlin MID 72270, ESI-Q-ToF)
+librarySpectrum <- new("Spectrum2",
+                       precursorMz = 382.9727,
+                       mz = c(193.9949, 172.9555, 144.9603, 108.9841, 74.0161),
+                       intensity = c(3, 100, 36, 10, 5),
+                       centroided = TRUE)
+
+# make mirror plot of two spectra
+plot(filteredMs2spectra[[4]], librarySpectrum, xlim = c(50,400))
+
+# calculate dot product
+compareSpectra(filteredMs2spectra[[4]], librarySpectrum, binSize = 0.01, fun = "dotproduct")
+
+
 ```
 
