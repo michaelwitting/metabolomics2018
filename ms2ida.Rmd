@@ -1,7 +1,7 @@
 ---
 title: "Processing IDA MS^2^ data - Basic Functions"
 author: "Michael"
-date: "13 Juni 2018"
+date: "24th of June 2018"
 output: html_document
 ---
 
@@ -61,6 +61,35 @@ unique(precursors)
 #split according to different SWATH windows
 xrms_ms2_swath <- split(xrms_ms2, f = as.integer(precursors))
 ```
+
+Optional: Plotting of individual BPCs.
+
+```{r}
+# create BPC for MS1 level
+bpis <- chromatogram(xrms_ms1, aggregationFun = "max", msLevel = 1)
+
+# get data in BPC
+bpcDf <- data.frame(rt = bpis[[1]]@rtime,
+                    int = bpis[[1]]@intensity,
+                    msLevel = "MS1")
+
+# generate BPC for each SWATH windows and add
+for(i in 1:length(xrms_ms2_swath)) {
+  
+  bpis <- chromatogram(xrms_ms2_swath[[i]], aggregationFun = "max", msLevel = 2)
+  
+  bpcDf_clipboard <- data.frame(rt = bpis[[1]]@rtime,
+                                int = bpis[[1]]@intensity,
+                                msLevel = paste0("MS2_", i))
+  
+  # add to data frame
+  bpcDf <- rbind.data.frame(bpcDf, bpcDf_clipboard)
+}
+
+# create plot with ggplots
+ggplot(bpcDf, aes(x = rt, y = int, colour = msLevel)) + geom_line() + facet_grid(msLevel ~ .) + theme_bw()
+```
+
 
 ## Working with SWATH data
 
@@ -137,5 +166,19 @@ if(nrow(fragCand) > 0) {
   plotSpectrum(ms2spectrum, chromPeak)
   
 }
+```
+
+Optional: A Spectrum2 object from the MSnbase package can be generated from the obtained data. With this, functions availabe in MSnbase for spectral handling can be used, e.g. comparison of spectra using the <code>compareSpectra()</code> function.
+
+```{r}
+# ms2spectrumMSnbase <- new("Spectrum2",
+#                           precursorMz = chromPeak[1],
+#                           rt = chromPeak[4],
+#                           mz = ms2spectrum$mz,
+#                           intensity = ms2spectrum$intensity,
+#                           centroided = TRUE)
+# 
+# plot(filteredMs2spectra[[4]], ms2spectrumMSnbase)
+# compareSpectra(filteredMs2spectra[[4]], ms2spectrumMSnbase, binSize = 0.05, fun = "dotproduct")
 ```
 

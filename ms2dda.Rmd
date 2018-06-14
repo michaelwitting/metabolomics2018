@@ -72,6 +72,12 @@ All MS2 spectra can be extracted by filtering out the MS2 level and retrieve all
 ```{r}
 #get all MS2 spectra from DDA experiment
 ms2spectra <- spectra(filterMsLevel(xrms, msLevel = 2))
+
+#plot position of all acquired MS2 spectra
+ms2pos <- data.frame(rt = unlist(lapply(ms2spectra, function(x) {return(x@rt)})),
+                     mz = unlist(lapply(ms2spectra, function(x) {return(x@precursorMz)})))
+
+plot(ms2pos$rt, ms2pos$mz)
 ```
 
 
@@ -104,6 +110,31 @@ getDdaMS2Scans <- function(chromPeak, ms2spectra, mzTol = 0.01, rtTol = 30) {
 }
 
 ```
+
+Using this function MS2 spectra can be consolidated and only spectra retained that are within a certain limit around a detected peak. This drastically reduces the number of spectra that have to be processed.
+
+```{r}
+#create empty list
+filteredMs2spectra <- list()
+
+# interate over all chromatographic peaks and get only spectra in range of peaks
+for(i in 1:nrow(chromPeaks)) {
+  
+  chromPeak <- chromPeaks[i,]
+  
+  filteredMs2spectra_clipboard <- getDdaMS2Scans(chromPeak, ms2spectra)
+  
+  filteredMs2spectra <- c(filteredMs2spectra, filteredMs2spectra_clipboard)
+}
+
+#plot the filtered spectra as red circles
+ms2pos_filtered <- data.frame(rt = unlist(lapply(filteredMs2spectra, function(x) {return(x@rt)})),
+                     mz = unlist(lapply(filteredMs2spectra, function(x) {return(x@precursorMz)})))
+
+plot(ms2pos$rt, ms2pos$mz)
+points(ms2pos_filtered$rt, ms2pos_filtered$mz, col = "red", cex = 2.5)
+```
+
 
 ## Example Peak: Fluopicolide
 
