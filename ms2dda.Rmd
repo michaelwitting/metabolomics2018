@@ -59,9 +59,7 @@ ms1data <- findChromPeaks(xrms, param = ms1cwp, msLevel = 1)
 chromPeaks <- chromPeaks(ms1data)
 
 #check detected peaks
-ggplot(as.data.frame(chromPeaks), aes(xmin = rtmin, xmax = rtmax, ymin = mzmin, ymax = mzmax)) +
-  geom_rect(colour = "blue") +
-  theme_bw()
+plotChromPeaks(ms1data)
 
 ```
 
