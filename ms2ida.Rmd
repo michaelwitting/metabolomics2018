@@ -109,7 +109,7 @@ Next chromatographic peak detection is performed on the MS^1^ and MS^2^ level. D
 ```{r}
 ## Set parameter for Centwave peak detection
 ms1cwp <- CentWaveParam(snthresh = 5, noise = 100, ppm = 10, peakwidth = c(3,30))
-ms2cwp <- CentWaveParam(snthresh = 5, noise = 100, ppm = 10, peakwidth = c(3,30))
+ms2cwp <- CentWaveParam(snthresh = 3, noise = 10, ppm = 10, peakwidth = c(3,30))
 
 # find peaks in MS1 level
 ms1data <- findChromPeaks(xrms_ms1, param = ms1cwp, msLevel = 1)
@@ -171,14 +171,28 @@ if(nrow(fragCand) > 0) {
 Optional: A Spectrum2 object from the MSnbase package can be generated from the obtained data. With this, functions availabe in MSnbase for spectral handling can be used, e.g. comparison of spectra using the <code>compareSpectra()</code> function.
 
 ```{r}
-# ms2spectrumMSnbase <- new("Spectrum2",
-#                           precursorMz = chromPeak[1],
-#                           rt = chromPeak[4],
-#                           mz = ms2spectrum$mz,
-#                           intensity = ms2spectrum$intensity,
-#                           centroided = TRUE)
-# 
-# plot(filteredMs2spectra[[4]], ms2spectrumMSnbase)
-# compareSpectra(filteredMs2spectra[[4]], ms2spectrumMSnbase, binSize = 0.05, fun = "dotproduct")
+# make Spectrum2 object
+ms2spectrumMSnbase <- new("Spectrum2",
+                          precursorMz = chromPeak[1],
+                          rt = chromPeak[4],
+                          mz = ms2spectrum$mz,
+                          intensity = ms2spectrum$intensity,
+                          centroided = TRUE)
+
+#trim to same mass region (remove precursor peaks)
+ms2spectrumMSnbase <- trimMz(ms2spectrumMSnbase, mzlim = c(50,350))
+
+#example spectrum (taken from Metlin MID 72270, ESI-Q-ToF)
+librarySpectrum <- new("Spectrum2",
+                       precursorMz = 382.9727,
+                       mz = c(193.9949, 172.9555, 144.9603, 108.9841, 74.0161),
+                       intensity = c(3, 100, 36, 10, 5),
+                       centroided = TRUE)
+
+# make mirror plot of two spectra
+plot(ms2spectrumMSnbase, librarySpectrum, xlim = c(50,400))
+
+# calculate dot product
+compareSpectra(ms2spectrumMSnbase, librarySpectrum, binSize = 0.05, fun = "dotproduct")
 ```
 
